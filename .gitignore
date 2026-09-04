@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# Environment variable files
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# SECURITY — NEVER commit secrets
+# ============================================================
+.streamlit/secrets.toml
+
+# Application data (uploads, SQLite DB, FAISS index)
+data/uploads/
+data/faiss_index/
+data/*.db
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test audio recordings
+test_audio/*.mp3
+test_audio/*.wav
+test_audio/*.m4a
+
+# Assignment/problem statement
+Test_problem_statement*.pdf
