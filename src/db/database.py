@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker, Session
 import config
 from src.db.models import Base, CallRecord, TranscriptLineRecord, ExtractedNoteRecord, HumanReviewRecord, AuditLogRecord
@@ -10,7 +11,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expi
 
 def init_db():
     """Initializes database tables and performs lightweight migrations."""
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except OperationalError as e:
+        if "already exists" not in str(e).lower():
+            raise
+
     # Perform lightweight migration for raw_speaker and source_type if missing
     try:
         with engine.connect() as conn:
