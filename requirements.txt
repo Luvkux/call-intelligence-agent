@@ -15,4 +15,5 @@ dateparser>=1.2.0
 pydub>=0.25.1
 pytest>=7.4.0
 python-dotenv>=1.0.0
+imageio-ffmpeg>=0.6.0
 

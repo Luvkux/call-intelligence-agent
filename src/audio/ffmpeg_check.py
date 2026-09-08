@@ -5,7 +5,9 @@ import shutil
 import subprocess
 from typing import Optional
 from pathlib import Path
+import imageio_ffmpeg
 import config
+
 
 def verify_ffmpeg_executable(binary_path: str) -> bool:
     """
@@ -27,68 +29,144 @@ def verify_ffmpeg_executable(binary_path: str) -> bool:
 
 def find_ffmpeg_executable() -> Optional[str]:
     """
-    Finds a valid ffmpeg executable using multiple robust strategies:
-    1. Configured environment variable `FFMPEG_PATH` or `config.FFMPEG_PATH`.
-    2. System PATH via `shutil.which("ffmpeg")`.
-    3. Local project `bin/ffmpeg.exe`.
-    4. Windows WinGet package directory discovery (%LOCALAPPDATA%/Microsoft/WinGet/Packages/**/ffmpeg.exe).
-    5. Windows User Registry PATH environment variable.
-    
-    If found via non-standard path, appends directory to `os.environ["PATH"]`.
-    Returns absolute path to valid ffmpeg executable or None.
+    Finds a valid ffmpeg executable using multiple strategies:
+    1. Configured environment variable FFMPEG_PATH or config.FFMPEG_PATH.
+    2. FFmpeg bundled with imageio-ffmpeg.
+    3. System PATH via shutil.which("ffmpeg").
+    4. Local project bin/ffmpeg.exe.
+    5. Windows WinGet package directory.
+    6. Windows User Registry PATH.
+
+    Returns the absolute path to a valid FFmpeg executable,
+    or None if FFmpeg cannot be found.
     """
+
     # 1. Check FFMPEG_PATH environment variable / config
     env_ffmpeg = os.getenv("FFMPEG_PATH") or getattr(config, "FFMPEG_PATH", "")
+
     if env_ffmpeg and verify_ffmpeg_executable(env_ffmpeg):
         bin_dir = os.path.dirname(os.path.abspath(env_ffmpeg))
+
         if bin_dir not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + bin_dir
+
         return os.path.abspath(env_ffmpeg)
 
-    # 2. Check system PATH via shutil.which
+    # 2. Check FFmpeg bundled with imageio-ffmpeg
+    try:
+        import imageio_ffmpeg
+
+        bundled_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+
+        if bundled_ffmpeg and verify_ffmpeg_executable(bundled_ffmpeg):
+            bin_dir = os.path.dirname(os.path.abspath(bundled_ffmpeg))
+
+            if bin_dir not in os.environ["PATH"]:
+                os.environ["PATH"] += os.pathsep + bin_dir
+
+            return os.path.abspath(bundled_ffmpeg)
+
+    except Exception:
+        pass
+
+    # 3. Check system PATH via shutil.which
     which_ffmpeg = shutil.which("ffmpeg")
+
     if which_ffmpeg and verify_ffmpeg_executable(which_ffmpeg):
         return os.path.abspath(which_ffmpeg)
 
-    # 3. Check local project bin directory
+    # 4. Check local project bin directory
     project_root = Path(__file__).resolve().parent.parent.parent
-    local_bin = project_root / "bin" / ("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
+
+    local_bin = project_root / "bin" / (
+        "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
+    )
+
     if local_bin.exists() and verify_ffmpeg_executable(str(local_bin)):
         bin_dir = str(local_bin.parent)
+
         if bin_dir not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + bin_dir
+
         return str(local_bin)
 
-    # 4. Windows specific: Search WinGet Packages directory dynamically
+    # 5. Windows specific: Search WinGet Packages directory
     if sys.platform == "win32":
-        local_app_data = os.getenv("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-        winget_packages_dir = os.path.join(local_app_data, "Microsoft", "WinGet", "Packages")
-        
+
+        local_app_data = (
+            os.getenv("LOCALAPPDATA")
+            or str(Path.home() / "AppData" / "Local")
+        )
+
+        winget_packages_dir = os.path.join(
+            local_app_data,
+            "Microsoft",
+            "WinGet",
+            "Packages"
+        )
+
         if os.path.exists(winget_packages_dir):
-            pattern = os.path.join(winget_packages_dir, "**", "ffmpeg.exe")
+
+            pattern = os.path.join(
+                winget_packages_dir,
+                "**",
+                "ffmpeg.exe"
+            )
+
             matches = glob.glob(pattern, recursive=True)
+
             for match in matches:
+
                 if verify_ffmpeg_executable(match):
-                    bin_dir = os.path.dirname(os.path.abspath(match))
+
+                    bin_dir = os.path.dirname(
+                        os.path.abspath(match)
+                    )
+
                     if bin_dir not in os.environ["PATH"]:
                         os.environ["PATH"] += os.pathsep + bin_dir
+
                     return os.path.abspath(match)
 
-        # 5. Windows Registry search for User PATH entries (handles terminal start timing issues)
+        # 6. Windows Registry search for User PATH
         try:
+
             import winreg
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment", 0, winreg.KEY_READ)
-            user_path, _ = winreg.QueryValueEx(key, "Path")
+
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Environment",
+                0,
+                winreg.KEY_READ
+            )
+
+            user_path, _ = winreg.QueryValueEx(
+                key,
+                "Path"
+            )
+
             winreg.CloseKey(key)
 
             for path_entry in user_path.split(os.pathsep):
+
                 path_entry = path_entry.strip()
+
                 if path_entry and os.path.exists(path_entry):
-                    target_exe = os.path.join(path_entry, "ffmpeg.exe")
+
+                    target_exe = os.path.join(
+                        path_entry,
+                        "ffmpeg.exe"
+                    )
+
                     if verify_ffmpeg_executable(target_exe):
+
                         if path_entry not in os.environ["PATH"]:
-                            os.environ["PATH"] += os.pathsep + path_entry
+                            os.environ["PATH"] += (
+                                os.pathsep + path_entry
+                            )
+
                         return os.path.abspath(target_exe)
+
         except Exception:
             pass
 
